@@ -1,10 +1,164 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Simple Page</title>
+  <meta charset="UTF-8">
+  <title>Select a Company</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      text-align: center;
+    }
+    h2 {
+      font-size: 42px;
+      color: #1a73e8;
+      border: 3px solid #1a73e8;
+      padding: 12px 25px;
+      border-radius: 15px;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+    select, button {
+      margin: 10px;
+      padding: 10px 16px;
+      font-size: 15px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+      background: rgba(255,255,255,0.8);
+    }
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 95%;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    th {
+      background-color: #f0f0f0;
+      text-transform: capitalize;
+      opacity: 0.85;
+    }
+    td a {
+      text-decoration: none;
+      color: #1a73e8;
+    }
+    .button-link {
+      background: none;
+      border: 1px solid #1a73e8;
+      border-radius: 15px;
+      padding: 4px 12px;
+      cursor: pointer;
+      color: #1a73e8;
+    }
+    #footer {
+      margin-top: 40px;
+      color: gray;
+      font-size: 13px;
+    }
+    .description {
+      font-size: 12px;
+      color: gray;
+      margin-top: 8px;
+    }
+  </style>
 </head>
 <body>
-  <h1>Hello, World!</h1>
-  <p>This is a simple HTML page with some text.</p>
+
+  <h2>Select a Company</h2>
+
+  <div>
+    <select id="companyDropdown">
+      <option>Select a company</option>
+    </select>
+    <button onclick="sortByDate()" class="button-link">Sort by Date</button>
+  </div>
+
+  <p class="description">
+    Recent questions extracted from the LeetCode interview discussions till 14th April.<br>
+    Filter by company to view structured details and sort by date.
+  </p>
+
+  <div id="tableContainer"></div>
+
+  <div id="footer">
+    Created by - Sandesh Malleboina |
+    <a href="https://www.linkedin.com/in/sandesh-malleboina/" target="_blank">LinkedIn</a>
+  </div>
+
+  <script>
+    let allData = [];
+
+    fetch('data.ndjson')
+      .then(res => res.text())
+      .then(text => {
+        const lines = text.trim().split('\n');
+        allData = lines.flatMap(line => JSON.parse(line));
+        populateDropdown(allData);
+      });
+
+    function populateDropdown(data) {
+      const dropdown = document.getElementById('companyDropdown');
+      const companies = [...new Set(data.map(d => d.company))];
+      companies.forEach(company => {
+        const option = document.createElement('option');
+        option.value = company;
+        option.textContent = company;
+        dropdown.appendChild(option);
+      });
+
+      dropdown.addEventListener('change', function () {
+        const selected = this.value;
+        if (selected !== 'Select a company') {
+          const filtered = allData.filter(d => d.company === selected);
+          showTable(filtered);
+        }
+      });
+    }
+
+    function showTable(data) {
+      let html = `<table><thead><tr>
+        <th>#</th>
+        <th>Company</th>
+        <th>Role</th>
+        <th>YOE</th>
+        <th>Question</th>
+        <th>Topic</th>
+        <th>Round Type</th>
+        <th>Difficulty</th>
+        <th>Link</th>
+        <th>Date</th>
+      </tr></thead><tbody>`;
+
+      data.forEach((item, idx) => {
+        html += `<tr>
+          <td>${idx + 1}</td>
+          <td>${item.company}</td>
+          <td>${item.role}</td>
+          <td>${item.yoe}</td>
+          <td>${item.quesion || item.question || 'NA'}</td>
+          <td>${item.topic}</td>
+          <td>${item.round_type?.replace(/_/g, ' ')}</td>
+          <td>${item.difficulty}</td>
+          <td><a class="button-link" href="${item.url}" target="_blank">Post</a></td>
+          <td>${item.date}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('tableContainer').innerHTML = html;
+    }
+
+    function sortByDate() {
+      const dropdown = document.getElementById('companyDropdown');
+      const selected = dropdown.value;
+      if (selected !== 'Select a company') {
+        const filtered = allData.filter(d => d.company === selected);
+        const sorted = filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        showTable(sorted);
+      }
+    }
+  </script>
 </body>
 </html>
