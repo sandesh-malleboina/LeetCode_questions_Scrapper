@@ -90,7 +90,7 @@
   <script>
     let allData = [];
 
-    fetch('data.ndjson')
+    fetch('fixed.ndjson')
       .then(res => res.text())
       .then(text => {
         const lines = text.trim().split('\n');
