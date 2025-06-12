@@ -172,7 +172,7 @@
     };
 
     // Load NDJSON from root
-    fetch('data.ndjson')
+    fetch('fixed.ndjson')
       .then(response => response.text())
       .then(text => {
         const lines = text.split('\n').filter(Boolean);
