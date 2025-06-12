@@ -15,14 +15,14 @@
       font-size: 42px;
       font-weight: 700;
       color: #333;
-      background: linear-gradient(to right, #00c6ff, #0072ff);
+      background: linear-gradient(to right, #ff8c00, #ff6600); /* orange gradient */
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       padding: 10px 20px;
-      border: 2px solid #0072ff;
+      border: 2px solid #ff6600;
       border-radius: 12px;
       display: inline-block;
-      box-shadow: 0 4px 12px rgba(0, 114, 255, 0.3);
+      box-shadow: 0 4px 12px rgba(255, 165, 0, 0.3);
       margin-bottom: 20px;
     }
 
@@ -80,7 +80,7 @@
       opacity: 0.75;
     }
 
-    button, select, input[type="file"] {
+    button, select {
       padding: 6px 14px;
       font-size: 14px;
       border-radius: 20px;
@@ -124,7 +124,6 @@
   <h2 class="fancy-heading">Recent Company Questions</h2>
 
   <div class="controls">
-    <input type="file" id="fileInput" accept=".ndjson">
     <div id="dropdownControls" style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
       <select id="companyDropdown">
         <option value="">Select Company</option>
@@ -160,31 +159,33 @@
     let topicChartInstance = null;
     let difficultyChartInstance = null;
 
-    const fileInput = document.getElementById('fileInput');
     const dropdown = document.getElementById('companyDropdown');
     const sortBtn = document.getElementById('sortDateBtn');
     const table = document.getElementById('table');
 
     const headingMap = {
       'quesion': 'Question',
+      'question': 'Question',
       'yoe': 'YOE',
       'round_type': 'Round Type',
       'url': 'Link'
     };
 
-    fileInput.addEventListener('change', function (e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const lines = event.target.result.split('\n').filter(Boolean);
-        data = lines.map(line => JSON.parse(line));
+    // Load NDJSON from root
+    fetch('data.ndjson')
+      .then(response => response.text())
+      .then(text => {
+        const lines = text.split('\n').filter(Boolean);
+        data = lines.map(line => {
+          const obj = JSON.parse(line);
+          if (obj.quesion && !obj.question) {
+            obj.question = obj.quesion;
+            delete obj.quesion;
+          }
+          return obj;
+        });
         populateDropdown(data);
-        fileInput.style.display = "none";
-      };
-      reader.readAsText(file);
-    });
+      });
 
     dropdown.addEventListener('change', () => {
       const selected = dropdown.value;
@@ -311,11 +312,13 @@
       table.appendChild(tbody);
     }
   </script>
-<p style="font-size: 0.8rem; color: gray; text-align: center; margin-top: 2rem;">
-  This website is not affiliated with or endorsed by LeetCode. All content and discussions shown here are publicly available on <a href="https://leetcode.com/discuss/" target="_blank" style="color: gray; text-decoration: underline;">LeetCode Discuss</a>. 
-  The data is used solely for educational and organizational purposes to help users structure and filter public interview experiences. 
-  All copyrights and trademarks belong to their respective owners.
-</p>
+
+  <p style="font-size: 0.8rem; color: gray; text-align: center; margin-top: 2rem;">
+    This website is not affiliated with or endorsed by LeetCode. All content and discussions shown here are publicly available on 
+    <a href="https://leetcode.com/discuss/" target="_blank" style="color: gray; text-decoration: underline;">LeetCode Discuss</a>. 
+    The data is used solely for educational and organizational purposes to help users structure and filter public interview experiences. 
+    All copyrights and trademarks belong to their respective owners.
+  </p>
 
 </body>
 </html>
