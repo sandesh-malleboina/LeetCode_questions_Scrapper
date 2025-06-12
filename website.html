@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NDJSON Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .fancy-heading {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: #333;
+      background: linear-gradient(to right, #00c6ff, #0072ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      padding: 10px 20px;
+      border: 2px solid #0072ff;
+      border-radius: 12px;
+      display: inline-block;
+      box-shadow: 0 4px 12px rgba(0, 114, 255, 0.3);
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .description {
+      font-size: 12px;
+      color: gray;
+      margin-bottom: 10px;
+    }
+
+    .charts {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .chart-container {
+      width: 300px;
+      height: 300px;
+    }
+
+    canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 90%;
+      margin: 20px auto;
+      display: none;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      text-transform: capitalize;
+      opacity: 0.75;
+    }
+
+    td:first-child {
+      opacity: 0.75;
+    }
+
+    button, select, input[type="file"] {
+      padding: 6px 14px;
+      font-size: 14px;
+      border-radius: 20px;
+      border: 1px solid #888;
+      background: rgba(255,255,255,0.4);
+      cursor: pointer;
+    }
+
+    .btn-link {
+      padding: 4px 12px;
+      border-radius: 20px;
+      background-color: rgba(0, 123, 255, 0.2);
+      color: #007BFF;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .btn-link:hover {
+      background-color: rgba(0, 123, 255, 0.3);
+    }
+
+    .footer {
+      margin-top: 40px;
+      font-size: 13px;
+      color: #666;
+      text-align: center;
+    }
+
+    .footer a {
+      color: #0077b5;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <h2 class="fancy-heading">Recent Company Questions</h2>
+
+  <div class="controls">
+    <input type="file" id="fileInput" accept=".ndjson">
+    <div id="dropdownControls" style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+      <select id="companyDropdown">
+        <option value="">Select Company</option>
+      </select>
+      <button id="sortDateBtn">Sort by Date</button>
+    </div>
+  </div>
+
+  <div class="description">
+    Recent interview questions extracted from LeetCode discussions up to March 3, 2025.  
+    Filter by company to view structured details, and sort questions by date.
+  </div>
+
+  <div class="charts">
+    <div class="chart-container">
+      <canvas id="topicChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="difficultyChart"></canvas>
+    </div>
+  </div>
+
+  <table id="table"></table>
+
+  <div class="footer">
+    Created By - Sandesh Malleboina |
+    <a href="https://www.linkedin.com/in/sandesh-malleboina/" target="_blank">LinkedIn</a>
+  </div>
+
+  <script>
+    let data = [];
+    let currentSortDirection = 'asc';
+    let topicChartInstance = null;
+    let difficultyChartInstance = null;
+
+    const fileInput = document.getElementById('fileInput');
+    const dropdown = document.getElementById('companyDropdown');
+    const sortBtn = document.getElementById('sortDateBtn');
+    const table = document.getElementById('table');
+
+    const headingMap = {
+      'quesion': 'Question',
+      'yoe': 'YOE',
+      'round_type': 'Round Type',
+      'url': 'Link'
+    };
+
+    fileInput.addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const lines = event.target.result.split('\n').filter(Boolean);
+        data = lines.map(line => JSON.parse(line));
+        populateDropdown(data);
+        fileInput.style.display = "none";
+      };
+      reader.readAsText(file);
+    });
+
+    dropdown.addEventListener('change', () => {
+      const selected = dropdown.value;
+      if (selected) {
+        const filtered = data.filter(d => d.company === selected);
+        renderChart(filtered, 'topic', 'topicChart', topicChartInstance, newInstance => topicChartInstance = newInstance);
+        renderChart(filtered, 'difficulty', 'difficultyChart', difficultyChartInstance, newInstance => difficultyChartInstance = newInstance);
+        renderTable(filtered);
+        table.style.display = 'table';
+      } else {
+        table.style.display = 'none';
+        if (topicChartInstance) topicChartInstance.destroy();
+        if (difficultyChartInstance) difficultyChartInstance.destroy();
+      }
+    });
+
+    sortBtn.addEventListener('click', () => {
+      const selected = dropdown.value;
+      if (!selected) return;
+      const filtered = data.filter(d => d.company === selected);
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return currentSortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      });
+      currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+      renderTable(filtered);
+    });
+
+    function populateDropdown(data) {
+      const companies = [...new Set(data.map(d => d.company).filter(Boolean))];
+      dropdown.innerHTML = `<option value="">Select Company</option>` +
+        companies.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    function renderChart(entries, field, canvasId, oldChart, setChartCallback) {
+      const counts = {};
+      entries.forEach(entry => {
+        let value = entry[field];
+        if (field === 'topic' && value) {
+          value.split(',').map(t => t.trim()).forEach(topic => {
+            if (topic) counts[topic] = (counts[topic] || 0) + 1;
+          });
+        } else if (value) {
+          value = value.trim();
+          counts[value] = (counts[value] || 0) + 1;
+        }
+      });
+
+      const labels = Object.keys(counts);
+      const values = Object.values(counts);
+      const colors = labels.map((_, i) => `hsl(${(i * 360) / labels.length}, 60%, 60%)`);
+
+      if (oldChart) oldChart.destroy();
+      const chart = new Chart(document.getElementById(canvasId), {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const value = context.raw;
+                  const percent = ((value / total) * 100).toFixed(1);
+                  return `${context.label}: ${percent}%`;
+                }
+              }
+            },
+            title: {
+              display: true,
+              text: field === 'topic' ? 'Topic Distribution' : 'Difficulty Distribution'
+            }
+          }
+        }
+      });
+      setChartCallback(chart);
+    }
+
+    function renderTable(rows) {
+      table.innerHTML = '';
+      if (rows.length === 0) return;
+
+      const headers = ['#', ...Object.keys(rows[0])];
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+
+      headers.forEach(key => {
+        const th = document.createElement('th');
+        if (key === '#') {
+          th.textContent = '#';
+        } else {
+          th.textContent = headingMap[key.toLowerCase()] || key.charAt(0).toUpperCase() + key.slice(1);
+        }
+        headerRow.appendChild(th);
+      });
+
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      rows.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        headers.forEach(key => {
+          const td = document.createElement('td');
+          if (key === '#') {
+            td.textContent = index + 1;
+          } else if (key.toLowerCase() === 'url') {
+            td.innerHTML = `<a href="${row[key]}" target="_blank" class="btn-link">POST</a>`;
+          } else {
+            td.textContent = typeof row[key] === 'object' ? JSON.stringify(row[key]) : row[key];
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+    }
+  </script>
+<p style="font-size: 0.8rem; color: gray; text-align: center; margin-top: 2rem;">
+  This website is not affiliated with or endorsed by LeetCode. All content and discussions shown here are publicly available on <a href="https://leetcode.com/discuss/" target="_blank" style="color: gray; text-decoration: underline;">LeetCode Discuss</a>. 
+  The data is used solely for educational and organizational purposes to help users structure and filter public interview experiences. 
+  All copyrights and trademarks belong to their respective owners.
+</p>
+
+</body>
+</html>
